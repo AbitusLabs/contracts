@@ -34,7 +34,9 @@ contract LongGammaVault is ILongGammaVault, ERC4626, Ownable, EIP712 {
     uint256 public totalDepositsCurrentEpoch; // gross notional deposited this epoch
     uint256 public cap; // gross notional cap per epoch
 
-    event QuoteDeposit(address indexed caller, address indexed receiver, uint256 notional, uint256 premium, uint256 shares);
+    event QuoteDeposit(
+        address indexed caller, address indexed receiver, uint256 notional, uint256 premium, uint256 shares
+    );
     event SettlementReceived(uint256 amount);
 
     error OnlyEpochController();
@@ -270,9 +272,8 @@ contract LongGammaVault is ILongGammaVault, ERC4626, Ownable, EIP712 {
     }
 
     function _recoverQuoteSigner(Quote calldata quote, bytes calldata signature) internal view returns (address) {
-        bytes32 structHash = keccak256(
-            abi.encode(QUOTE_TYPEHASH, quote.epochId, quote.notional, quote.premium, quote.expiry)
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(QUOTE_TYPEHASH, quote.epochId, quote.notional, quote.premium, quote.expiry));
         bytes32 digest = _hashTypedDataV4(structHash);
         return ECDSA.recover(digest, signature);
     }

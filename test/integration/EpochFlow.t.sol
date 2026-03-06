@@ -77,20 +77,13 @@ contract EpochFlowTest is Test {
         vm.warp(epochAnchor - 1);
     }
 
-    function _signQuote(
-        uint256 epochId,
-        uint256 notional,
-        uint256 premium,
-        uint256 expiry
-    ) internal view returns (bytes memory) {
-        bytes32 digest = digestHelper.getDigest(
-            address(longGammaVault),
-            block.chainid,
-            epochId,
-            notional,
-            premium,
-            expiry
-        );
+    function _signQuote(uint256 epochId, uint256 notional, uint256 premium, uint256 expiry)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 digest =
+            digestHelper.getDigest(address(longGammaVault), block.chainid, epochId, notional, premium, expiry);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(quoterPk, digest);
         return abi.encodePacked(r, s, v);
     }
@@ -106,10 +99,7 @@ contract EpochFlowTest is Test {
         assertEq(lpVault.balanceOf(lpUser), 300_000 * 1e8);
 
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId,
-            notional: 100 * 1e8,
-            premium: 8 * 1e8,
-            expiry: block.timestamp + 2 hours
+            epochId: epochId, notional: 100 * 1e8, premium: 8 * 1e8, expiry: block.timestamp + 2 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(stratUser);

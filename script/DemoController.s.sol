@@ -3,25 +3,22 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { IERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "../src/interfaces/IEpochController.sol";
 import "../src/interfaces/ISettlementOracle.sol";
 import "../src/interfaces/ILongGammaVault.sol";
 import "../src/interfaces/ILPVault.sol";
 
-
 interface IMockERC20 {
     function mint(address to, uint256 amount) external;
 }
 
-bytes32 constant QUOTE_TYPEHASH =
-    keccak256("Quote(uint256 epochId,uint256 notional,uint256 premium,uint256 expiry)");
+bytes32 constant QUOTE_TYPEHASH = keccak256("Quote(uint256 epochId,uint256 notional,uint256 premium,uint256 expiry)");
 
 bytes32 constant DOMAIN_TYPEHASH =
     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
 contract DemoController is Script {
-
     address LP_VAULT = vm.envAddress("LP_VAULT");
     address LONG_GAMMA = vm.envAddress("LONG_GAMMA_VAULT");
     address CONTROLLER = vm.envAddress("EPOCH_CONTROLLER");
@@ -35,7 +32,6 @@ contract DemoController is Script {
     uint256 KEEPER_PK = vm.envUint("KEEPER_PK");
 
     function run() external {
-
         address lpUser = vm.addr(LP_USER_PK);
         address stratUser = vm.addr(STRAT_USER_PK);
         address owner = vm.addr(OWNER_PK);
@@ -68,29 +64,11 @@ contract DemoController is Script {
 
         IERC20(COLLATERAL).approve(LONG_GAMMA, 100 * 1e8);
 
-        ILongGammaVault.Quote memory q =
-            ILongGammaVault.Quote(
-                epochId,
-                100 * 1e8,
-                10 * 1e8,
-                block.timestamp + 1 hours
-            );
+        ILongGammaVault.Quote memory q = ILongGammaVault.Quote(epochId, 100 * 1e8, 10 * 1e8, block.timestamp + 1 hours);
 
-        bytes memory sig = _signQuote(
-            QUOTER_PK,
-            LONG_GAMMA,
-            q.epochId,
-            q.notional,
-            q.premium,
-            q.expiry
-        );
+        bytes memory sig = _signQuote(QUOTER_PK, LONG_GAMMA, q.epochId, q.notional, q.premium, q.expiry);
 
-        ILongGammaVault(LONG_GAMMA).depositWithQuote(
-            100 * 1e8,
-            stratUser,
-            q,
-            sig
-        );
+        ILongGammaVault(LONG_GAMMA).depositWithQuote(100 * 1e8, stratUser, q, sig);
 
         vm.stopBroadcast();
 
@@ -120,30 +98,15 @@ contract DemoController is Script {
         uint256 premium,
         uint256 expiry
     ) internal view returns (bytes memory) {
-
         bytes32 domainSeparator = keccak256(
             abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256("AbitusLongGammaQuote"),
-                keccak256("1"),
-                block.chainid,
-                verifyingContract
+                DOMAIN_TYPEHASH, keccak256("AbitusLongGammaQuote"), keccak256("1"), block.chainid, verifyingContract
             )
         );
 
-        bytes32 structHash = keccak256(
-            abi.encode(
-                QUOTE_TYPEHASH,
-                epochId,
-                notional,
-                premium,
-                expiry
-            )
-        );
+        bytes32 structHash = keccak256(abi.encode(QUOTE_TYPEHASH, epochId, notional, premium, expiry));
 
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, structHash)
-        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(quoterPk, digest);
 
@@ -170,5 +133,4 @@ contract DemoController is Script {
         // cmd2[4] = rpc;
         // vm.ffi(cmd2);
     }
-
 }

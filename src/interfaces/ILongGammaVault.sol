@@ -13,10 +13,7 @@ interface ILongGammaVault {
 
     function onEpochStarted(uint256 epochId) external;
 
-    function depositWithQuote(
-        uint256 assets,
-        address receiver,
-        Quote calldata quote,
-        bytes calldata signature
-    ) external returns (uint256);
+    function depositWithQuote(uint256 assets, address receiver, Quote calldata quote, bytes calldata signature)
+        external
+        returns (uint256);
 }
