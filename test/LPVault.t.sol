@@ -60,7 +60,7 @@ contract LPVaultTest is Test {
     }
 
     function _warpToDepositWindow() internal {
-        vm.warp(epochAnchor - 1);
+        vm.warp(epochAnchor);
     }
 
     function test_deposit_inWindow_success() public {
@@ -75,7 +75,7 @@ contract LPVaultTest is Test {
     }
 
     function test_deposit_outOfWindow_reverts() public {
-        vm.warp(epochAnchor);
+        vm.warp(epochAnchor - 1);
         vm.prank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
         vm.prank(user1);
@@ -89,7 +89,7 @@ contract LPVaultTest is Test {
         vm.prank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
         vm.prank(user1);
-        vm.expectRevert(LPVault.DepositWindowClosed.selector);
+        vm.expectRevert(LPVault.NoController.selector);
         lpVault.deposit(100 * 1e8, user1);
     }
 

@@ -74,7 +74,7 @@ contract EpochFlowTest is Test {
     }
 
     function _warpToDepositWindow() internal {
-        vm.warp(epochAnchor - 1);
+        vm.warp(epochAnchor);
     }
 
     function _signQuote(uint256 epochId, uint256 notional, uint256 premium, uint256 expiry)

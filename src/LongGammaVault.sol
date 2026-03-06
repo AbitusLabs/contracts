@@ -198,63 +198,30 @@ contract LongGammaVault is ILongGammaVault, ERC4626, Ownable, EIP712 {
     // ---------------------------------------------------------------------
 
     function maxDeposit(address) public view override returns (uint256) {
-        if (!_depositWindowOpen()) return 0;
+        _requireDepositWindow();
         if (cap == 0) return type(uint256).max;
         if (totalDepositsCurrentEpoch >= cap) return 0;
         return cap - totalDepositsCurrentEpoch;
-    }
-
-    function maxMint(address) public view override returns (uint256) {
-        return _depositWindowOpen() ? type(uint256).max : 0;
-    }
-
-    function maxWithdraw(address owner) public view override returns (uint256) {
-        return _withdrawWindowOpen() ? super.maxWithdraw(owner) : 0;
-    }
-
-    function maxRedeem(address owner) public view override returns (uint256) {
-        return _withdrawWindowOpen() ? super.maxRedeem(owner) : 0;
     }
 
     // ---------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------
 
-    function _depositEpochId() internal view returns (uint256) {
-        uint256 current = epochController.getCurrentEpochId();
-
-        // If we're still before current epoch start, deposits target current epoch.
-        uint256 currentStart = epochController.getEpochStartTime(current);
-        if (block.timestamp < currentStart) {
-            return current;
-        }
-
-        // Otherwise, deposits target the next epoch.
-        return current + 1;
-    }
-
-    function _depositWindowOpen() internal view returns (bool) {
-        if (address(epochController) == address(0)) return false;
-
-        uint256 depositEpoch = _depositEpochId();
-        uint256 depositEpochStart = epochController.getEpochStartTime(depositEpoch);
-
-        return block.timestamp < depositEpochStart;
-    }
-
-    function _withdrawWindowOpen() internal view returns (bool) {
-        if (address(epochController) == address(0)) return false;
-        uint256 currentEpoch = epochController.getCurrentEpochId();
-        if (currentEpoch == 0) return false;
-        return epochController.epochSettled(currentEpoch - 1);
-    }
-
     function _requireDepositWindow() internal view {
-        if (!_depositWindowOpen()) revert DepositWindowClosed();
+        require(address(epochController) != address(0), "LongGammaVault: no controller");
+        uint256 currentId = epochController.getCurrentEpochId();
+        uint256 epochStart = epochController.getEpochStartTime(currentId);
+        uint256 end = epochController.getEpochEndTime(currentId);
+
+        if (block.timestamp < epochStart || block.timestamp >= end) revert DepositWindowClosed();
     }
 
     function _requireWithdrawWindow() internal view {
-        if (!_withdrawWindowOpen()) revert WithdrawBeforeSettlement();
+        require(address(epochController) != address(0), "LongGammaVault: no controller");
+        uint256 currentEpoch = epochController.getCurrentEpochId();
+        if (currentEpoch == 0) revert WithdrawBeforeSettlement();
+        if (!epochController.epochSettled(currentEpoch - 1)) revert WithdrawBeforeSettlement();
     }
 
     function _requireCap(uint256 assets) internal view {

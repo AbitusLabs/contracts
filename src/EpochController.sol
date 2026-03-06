@@ -8,7 +8,7 @@ import "./interfaces/ILongGammaVault.sol";
 import "./interfaces/ILPVault.sol";
 
 contract EpochController is IEpochController, Ownable {
-    uint256 public constant EPOCH_DURATION = 5 minutes;
+    uint256 public constant EPOCH_DURATION = 1 days;
 
     ISettlementOracle public oracle;
     ILongGammaVault private _longGammaVault;
