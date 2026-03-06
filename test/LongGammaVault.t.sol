@@ -108,7 +108,7 @@ contract LongGammaVaultTest is Test {
         uint256 epochId = controller.getCurrentEpochId();
         uint256 amount = 100 * 1e8;
         uint256 premium = 5 * 1e8;
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: amount,
             premium: premium,
@@ -118,7 +118,7 @@ contract LongGammaVaultTest is Test {
 
         vm.startPrank(user1);
         collateral.approve(address(longGammaVault), amount);
-        longGammaVault.deposit(amount, quote, sig);
+        longGammaVault.depositWithQuote(amount, user1, quote, sig);
         vm.stopPrank();
 
         assertEq(longGammaVault.balanceOf(user1), amount - premium);
@@ -133,7 +133,7 @@ contract LongGammaVaultTest is Test {
         uint256 premium = 5 * 1e8;
         vm.prank(owner);
         quoterRegistry.removeQuoter(quoter);
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: amount,
             premium: premium,
@@ -143,14 +143,14 @@ contract LongGammaVaultTest is Test {
         vm.prank(user1);
         collateral.approve(address(longGammaVault), amount);
         vm.prank(user1);
-        vm.expectRevert("LongGammaVault: invalid quoter");
-        longGammaVault.deposit(amount, quote, sig);
+        vm.expectRevert(LongGammaVault.InvalidQuote.selector);
+        longGammaVault.depositWithQuote(amount, user1, quote, sig);
     }
 
     function test_deposit_wrongEpoch_reverts() public {
         _warpToDepositWindow();
         uint256 wrongEpoch = controller.getCurrentEpochId() + 1;
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: wrongEpoch,
             notional: 100 * 1e8,
             premium: 5 * 1e8,
@@ -161,7 +161,7 @@ contract LongGammaVaultTest is Test {
         collateral.approve(address(longGammaVault), 100 * 1e8);
         vm.prank(user1);
         vm.expectRevert(LongGammaVault.InvalidQuote.selector);
-        longGammaVault.deposit(100 * 1e8, quote, sig);
+        longGammaVault.depositWithQuote(100 * 1e8, user1, quote, sig);
     }
 
     function test_deposit_capExceeded_reverts() public {
@@ -169,7 +169,7 @@ contract LongGammaVaultTest is Test {
         vm.prank(owner);
         longGammaVault.setCap(50 * 1e8);
         uint256 epochId = controller.getCurrentEpochId();
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: 100 * 1e8,
             premium: 5 * 1e8,
@@ -180,13 +180,13 @@ contract LongGammaVaultTest is Test {
         collateral.approve(address(longGammaVault), 100 * 1e8);
         vm.prank(user1);
         vm.expectRevert(LongGammaVault.CapExceeded.selector);
-        longGammaVault.deposit(100 * 1e8, quote, sig);
+        longGammaVault.depositWithQuote(100 * 1e8, user1, quote, sig);
     }
 
     function test_deposit_windowClosed_reverts() public {
         vm.warp(epochAnchor);
         uint256 epochId = controller.getCurrentEpochId();
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: 100 * 1e8,
             premium: 5 * 1e8,
@@ -197,7 +197,7 @@ contract LongGammaVaultTest is Test {
         collateral.approve(address(longGammaVault), 100 * 1e8);
         vm.prank(user1);
         vm.expectRevert(LongGammaVault.DepositWindowClosed.selector);
-        longGammaVault.deposit(100 * 1e8, quote, sig);
+        longGammaVault.depositWithQuote(100 * 1e8, user1, quote, sig);
     }
 
     function test_receiveSettlement_onlyController() public {
@@ -209,7 +209,7 @@ contract LongGammaVaultTest is Test {
     function test_onEpochStarted_resetsTotalDeposits() public {
         _warpToDepositWindow();
         uint256 epochId = controller.getCurrentEpochId();
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: 100 * 1e8,
             premium: 5 * 1e8,
@@ -218,7 +218,7 @@ contract LongGammaVaultTest is Test {
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
         collateral.approve(address(longGammaVault), 100 * 1e8);
-        longGammaVault.deposit(100 * 1e8, quote, sig);
+        longGammaVault.depositWithQuote(100 * 1e8, user1, quote, sig);
         vm.stopPrank();
         assertEq(longGammaVault.totalDepositsCurrentEpoch(), 100 * 1e8);
 
@@ -228,17 +228,17 @@ contract LongGammaVaultTest is Test {
         assertEq(longGammaVault.totalDepositsCurrentEpoch(), 0);
     }
 
-    function test_withdraw_afterSettlement_success() public {
+    function test_redeem_afterSettlement_success() public {
         _warpToDepositWindow();
         vm.startPrank(user1);
         collateral.approve(address(lpVault), 500 * 1e8);
-        lpVault.deposit(500 * 1e8);
+        lpVault.deposit(500 * 1e8, user1);
         vm.stopPrank();
 
         uint256 epochId = controller.getCurrentEpochId();
         uint256 amount = 100 * 1e8;
         uint256 premium = 10 * 1e8;
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: amount,
             premium: premium,
@@ -247,7 +247,7 @@ contract LongGammaVaultTest is Test {
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
         collateral.approve(address(longGammaVault), amount);
-        longGammaVault.deposit(amount, quote, sig);
+        longGammaVault.depositWithQuote(amount, user1, quote, sig);
         vm.stopPrank();
 
         vm.warp(epochAnchor + 1);
@@ -280,14 +280,71 @@ contract LongGammaVaultTest is Test {
 
         uint256 shares = longGammaVault.balanceOf(user1);
         vm.prank(user1);
-        longGammaVault.withdraw(shares);
+        longGammaVault.redeem(shares, user1, user1);
+        assertEq(longGammaVault.balanceOf(user1), 0);
+    }
+
+    function test_withdraw_afterSettlement_success() public {
+        _warpToDepositWindow();
+        vm.startPrank(user1);
+        collateral.approve(address(lpVault), 500 * 1e8);
+        lpVault.deposit(500 * 1e8, user1);
+        vm.stopPrank();
+
+        uint256 epochId = controller.getCurrentEpochId();
+        uint256 amount = 100 * 1e8;
+        uint256 premium = 10 * 1e8;
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
+            epochId: epochId,
+            notional: amount,
+            premium: premium,
+            expiry: block.timestamp + 1 hours
+        });
+        bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
+        vm.startPrank(user1);
+        collateral.approve(address(longGammaVault), amount);
+        longGammaVault.depositWithQuote(amount, user1, quote, sig);
+        vm.stopPrank();
+
+        vm.warp(epochAnchor + 1);
+        vm.prank(owner);
+        controller.startEpoch();
+        vm.prank(owner);
+        oracle.setSettlementPrice(0, 50_000 * 1e8);
+        vm.warp(epochAnchor + 1 days + 1);
+        controller.settleEpoch(0);
+
+        vm.prank(owner);
+        controller.startEpoch();
+        vm.prank(owner);
+        oracle.setSettlementPrice(1, 50_000 * 1e8);
+        vm.warp(epochAnchor + 2 days + 1);
+        controller.settleEpoch(1);
+        vm.prank(owner);
+        controller.startEpoch();
+        vm.prank(owner);
+        oracle.setSettlementPrice(2, 50_500 * 1e8);
+        vm.warp(epochAnchor + 3 days + 1);
+        controller.settleEpoch(2);
+
+        vm.prank(owner);
+        controller.startEpoch();
+        vm.prank(owner);
+        oracle.setSettlementPrice(3, 50_000 * 1e8);
+        vm.warp(epochAnchor + 4 days + 1);
+        controller.settleEpoch(3);
+
+        uint256 shares = longGammaVault.balanceOf(user1);
+        uint256 assets = longGammaVault.previewRedeem(shares);
+        vm.prank(user1);
+        longGammaVault.withdraw(assets, user1, user1);
         assertEq(longGammaVault.balanceOf(user1), 0);
     }
 
     function test_withdraw_beforeSettlement_reverts() public {
         _warpToDepositWindow();
         uint256 epochId = controller.getCurrentEpochId();
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: 100 * 1e8,
             premium: 5 * 1e8,
@@ -296,11 +353,30 @@ contract LongGammaVaultTest is Test {
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
         collateral.approve(address(longGammaVault), 100 * 1e8);
-        longGammaVault.deposit(100 * 1e8, quote, sig);
+        longGammaVault.depositWithQuote(100 * 1e8, user1, quote, sig);
         vm.stopPrank();
         vm.prank(user1);
         vm.expectRevert(LongGammaVault.WithdrawBeforeSettlement.selector);
-        longGammaVault.withdraw(50 * 1e8);
+        longGammaVault.withdraw(50 * 1e8, user1, user1);
+    }
+
+    function test_redeem_beforeSettlement_reverts() public {
+        _warpToDepositWindow();
+        uint256 epochId = controller.getCurrentEpochId();
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
+            epochId: epochId,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
+        });
+        bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
+        vm.startPrank(user1);
+        collateral.approve(address(longGammaVault), 100 * 1e8);
+        longGammaVault.depositWithQuote(100 * 1e8, user1, quote, sig);
+        vm.stopPrank();
+        vm.prank(user1);
+        vm.expectRevert(LongGammaVault.WithdrawBeforeSettlement.selector);
+        longGammaVault.redeem(50 * 1e8, user1, user1);
     }
 
     function test_roll_noOp() public {

@@ -11,4 +11,8 @@ interface IEpochController {
     function epochSettled(uint256 epochId) external view returns (bool);
 
     function longGammaVault() external view returns (address);
+
+    function startEpoch() external;
+
+    function settleEpoch(uint256 epochId) external;
 }

@@ -101,11 +101,11 @@ contract EpochFlowTest is Test {
 
         vm.startPrank(lpUser);
         collateral.approve(address(lpVault), 300_000 * 1e8);
-        lpVault.deposit(300_000 * 1e8);
+        lpVault.deposit(300_000 * 1e8, lpUser);
         vm.stopPrank();
         assertEq(lpVault.balanceOf(lpUser), 300_000 * 1e8);
 
-        LongGammaVault.Quote memory quote = LongGammaVault.Quote({
+        ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId,
             notional: 100 * 1e8,
             premium: 8 * 1e8,
@@ -114,7 +114,7 @@ contract EpochFlowTest is Test {
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(stratUser);
         collateral.approve(address(longGammaVault), 100 * 1e8);
-        longGammaVault.deposit(100 * 1e8, quote, sig);
+        longGammaVault.depositWithQuote(100 * 1e8, stratUser, quote, sig);
         vm.stopPrank();
         assertEq(longGammaVault.balanceOf(stratUser), 92 * 1e8);
         assertEq(collateral.balanceOf(address(lpVault)), 300_000 * 1e8 + 8 * 1e8);
@@ -147,12 +147,14 @@ contract EpochFlowTest is Test {
         vm.warp(epochAnchor + 3 days + 1);
         controller.settleEpoch(2);
 
+        uint256 stratShares = longGammaVault.balanceOf(stratUser);
         vm.prank(stratUser);
-        longGammaVault.withdraw(longGammaVault.balanceOf(stratUser));
+        longGammaVault.redeem(stratShares, stratUser, stratUser);
         assertEq(longGammaVault.balanceOf(stratUser), 0);
 
+        uint256 lpShares = lpVault.balanceOf(lpUser);
         vm.prank(lpUser);
-        lpVault.withdraw(lpVault.balanceOf(lpUser));
+        lpVault.redeem(lpShares, lpUser, lpUser);
         assertEq(lpVault.balanceOf(lpUser), 0);
     }
 }

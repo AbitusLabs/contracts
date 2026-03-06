@@ -137,7 +137,7 @@ contract EpochControllerTest is Test {
         vm.warp(epochAnchor - 1);
         vm.startPrank(owner);
         collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
+        lpVault.deposit(100_000 * 1e8, owner);
         vm.stopPrank();
 
         vm.warp(epochAnchor + 1);
@@ -155,7 +155,7 @@ contract EpochControllerTest is Test {
         vm.warp(epochAnchor - 1);
         vm.startPrank(owner);
         collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
+        lpVault.deposit(100_000 * 1e8, owner);
         vm.stopPrank();
 
         vm.warp(epochAnchor + 1);
@@ -183,7 +183,7 @@ contract EpochControllerTest is Test {
         vm.warp(epochAnchor - 1);
         vm.startPrank(owner);
         collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
+        lpVault.deposit(100_000 * 1e8, owner);
         vm.stopPrank();
 
         vm.warp(epochAnchor + 1);
@@ -203,7 +203,7 @@ contract EpochControllerTest is Test {
         vm.warp(epochAnchor - 1);
         vm.startPrank(owner);
         collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
+        lpVault.deposit(100_000 * 1e8, owner);
         vm.stopPrank();
 
         vm.warp(epochAnchor + 1);
