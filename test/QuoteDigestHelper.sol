@@ -16,13 +16,7 @@ contract QuoteDigestHelper {
         uint256 expiry
     ) external pure returns (bytes32) {
         bytes32 domainSeparator = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256("AbitusLongGammaQuote"),
-                keccak256("1"),
-                chainId,
-                verifyingContract
-            )
+            abi.encode(DOMAIN_TYPEHASH, keccak256("AbitusLongGammaQuote"), keccak256("1"), chainId, verifyingContract)
         );
         bytes32 structHash = keccak256(abi.encode(QUOTE_TYPEHASH, epochId, notional, premium, expiry));
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));

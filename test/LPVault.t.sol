@@ -60,7 +60,7 @@ contract LPVaultTest is Test {
     }
 
     function _warpToDepositWindow() internal {
-        vm.warp(epochAnchor - 1);
+        vm.warp(epochAnchor);
     }
 
     function test_deposit_inWindow_success() public {
@@ -68,19 +68,19 @@ contract LPVaultTest is Test {
         uint256 amount = 100 * 1e8;
         vm.startPrank(user1);
         collateral.approve(address(lpVault), amount);
-        lpVault.deposit(amount);
+        lpVault.deposit(amount, user1);
         vm.stopPrank();
         assertEq(lpVault.balanceOf(user1), amount);
         assertEq(collateral.balanceOf(address(lpVault)), amount);
     }
 
     function test_deposit_outOfWindow_reverts() public {
-        vm.warp(epochAnchor);
+        vm.warp(epochAnchor - 1);
         vm.prank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
         vm.prank(user1);
         vm.expectRevert(LPVault.DepositWindowClosed.selector);
-        lpVault.deposit(100 * 1e8);
+        lpVault.deposit(100 * 1e8, user1);
     }
 
     function test_deposit_noController_reverts() public {
@@ -89,8 +89,8 @@ contract LPVaultTest is Test {
         vm.prank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
         vm.prank(user1);
-        vm.expectRevert(LPVault.DepositWindowClosed.selector);
-        lpVault.deposit(100 * 1e8);
+        vm.expectRevert(LPVault.NoController.selector);
+        lpVault.deposit(100 * 1e8, user1);
     }
 
     function test_withdraw_afterSettlement_success() public {
@@ -98,7 +98,7 @@ contract LPVaultTest is Test {
         uint256 amount = 100 * 1e8;
         vm.startPrank(user1);
         collateral.approve(address(lpVault), amount);
-        lpVault.deposit(amount);
+        lpVault.deposit(amount, user1);
         vm.stopPrank();
 
         vm.prank(owner);
@@ -134,7 +134,7 @@ contract LPVaultTest is Test {
 
         uint256 shares = lpVault.balanceOf(user1);
         vm.prank(user1);
-        lpVault.withdraw(shares);
+        lpVault.withdraw(shares, user1, user1);
         assertEq(lpVault.balanceOf(user1), 0);
         assertEq(collateral.balanceOf(user1), 1_000_000 * 1e8);
     }
@@ -143,11 +143,11 @@ contract LPVaultTest is Test {
         _warpToDepositWindow();
         vm.startPrank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
-        lpVault.deposit(100 * 1e8);
+        lpVault.deposit(100 * 1e8, user1);
         vm.stopPrank();
         vm.prank(user1);
         vm.expectRevert(LPVault.WithdrawBeforeSettlement.selector);
-        lpVault.withdraw(50 * 1e8);
+        lpVault.withdraw(50 * 1e8, user1, user1);
     }
 
     function test_receivePremium_fromLongGammaVault() public {
@@ -172,7 +172,7 @@ contract LPVaultTest is Test {
         _warpToDepositWindow();
         vm.startPrank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
-        lpVault.deposit(100 * 1e8);
+        lpVault.deposit(100 * 1e8, user1);
         vm.stopPrank();
         vm.prank(user1);
         vm.expectRevert(LPVault.OnlyEpochController.selector);
@@ -183,7 +183,7 @@ contract LPVaultTest is Test {
         _warpToDepositWindow();
         vm.startPrank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
-        lpVault.deposit(100 * 1e8);
+        lpVault.deposit(100 * 1e8, user1);
         vm.stopPrank();
         uint256 pay = 20 * 1e8;
         vm.prank(address(controller));

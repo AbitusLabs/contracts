@@ -19,52 +19,71 @@ contract EpochControllerTest is Test {
 
     address public owner;
     address public keeper;
+
     uint256 public epochAnchor;
+
+    uint256 constant STRIKE = 50_000 * 1e8;
+
+    function warpIntoEpoch(uint256 id) internal {
+        vm.warp(epochAnchor + id * 1 days + 1);
+    }
+
+    function warpAfterEpoch(uint256 id) internal {
+        vm.warp(epochAnchor + (id + 1) * 1 days + 1);
+    }
+
+    function fundLP(uint256 amount) internal {
+        vm.startPrank(owner);
+        collateral.approve(address(lpVault), amount);
+        lpVault.deposit(amount, owner);
+        vm.stopPrank();
+    }
 
     function setUp() public {
         owner = address(1);
         keeper = address(2);
+
         epochAnchor = 10 days;
-        vm.warp(epochAnchor + 1);
 
         collateral = new MockERC20("BTC.b", "BTC.b", 8);
         collateral.mint(owner, 1_000_000 * 1e8);
 
-        vm.prank(owner);
         oracle = new SettlementOracle(owner);
+
         feed = new MockPriceFeed();
-        feed.setPrice(50_000 * 1e8);
+        feed.setPrice(int256(STRIKE));
+
         vm.prank(owner);
         oracle.setPriceFeed(address(feed));
+
         vm.prank(owner);
         oracle.setKeeper(keeper);
 
-        vm.prank(owner);
         lpVault = new LPVault(owner, address(collateral));
-        vm.prank(owner);
         longGammaVault = new LongGammaVault(owner, address(collateral));
-        vm.prank(owner);
         controller = new EpochController(owner, epochAnchor);
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+
         controller.setOracle(oracle);
-        vm.prank(owner);
         controller.setKeeper(keeper);
-        vm.prank(owner);
         controller.setVaults(longGammaVault, lpVault);
-        vm.prank(owner);
+
         longGammaVault.setEpochController(address(controller));
-        vm.prank(owner);
+
         lpVault.setEpochController(address(controller));
-        vm.prank(owner);
         lpVault.setLongGammaVault(address(longGammaVault));
+
+        vm.stopPrank();
     }
 
     function test_getCurrentEpochId() public {
         vm.warp(epochAnchor);
         assertEq(controller.getCurrentEpochId(), 0);
+
         vm.warp(epochAnchor + 1 days);
         assertEq(controller.getCurrentEpochId(), 1);
+
         vm.warp(epochAnchor + 2 days + 1);
         assertEq(controller.getCurrentEpochId(), 2);
     }
@@ -84,148 +103,175 @@ contract EpochControllerTest is Test {
     }
 
     function test_startEpoch_onlyKeeper() public {
-        vm.warp(epochAnchor + 1);
+        warpIntoEpoch(0);
+
         vm.prank(owner);
         vm.expectRevert(EpochController.OnlyKeeper.selector);
+
         controller.startEpoch();
     }
 
     function test_startEpoch_success() public {
-        vm.warp(epochAnchor + 1);
+        warpIntoEpoch(0);
+
         vm.prank(keeper);
         controller.startEpoch();
-        assertEq(controller.strikeForEpoch(controller.getCurrentEpochId()), 50_000 * 1e8);
+
+        assertEq(controller.strikeForEpoch(0), STRIKE);
     }
 
     function test_startEpoch_emitsEvent() public {
-        vm.warp(epochAnchor + 1);
-        uint256 epochId = controller.getCurrentEpochId();
-        vm.prank(keeper);
+        warpIntoEpoch(0);
+
         vm.expectEmit(true, true, true, true);
-        emit EpochController.EpochStarted(epochId, 50_000 * 1e8);
+        emit EpochController.EpochStarted(0, STRIKE);
+
+        vm.prank(keeper);
         controller.startEpoch();
     }
 
     function test_startEpoch_beforeEpochStart_reverts() public {
         vm.warp(epochAnchor - 1);
+
         vm.prank(keeper);
         vm.expectRevert(EpochController.EpochNotStarted.selector);
+
         controller.startEpoch();
     }
 
     function test_startEpoch_alreadySet_reverts() public {
-        vm.warp(epochAnchor + 1);
+        warpIntoEpoch(0);
+
         vm.prank(keeper);
         controller.startEpoch();
+
         vm.prank(keeper);
         vm.expectRevert(EpochController.SettlementAlreadySet.selector);
+
         controller.startEpoch();
     }
 
+    /*//////////////////////////////////////////////////////////////
+                             SETTLEMENT
+    //////////////////////////////////////////////////////////////*/
+
     function test_settleEpoch_beforeEnd_reverts() public {
-        vm.warp(epochAnchor + 1);
+        warpIntoEpoch(0);
+
         vm.prank(keeper);
         controller.startEpoch();
+
         vm.prank(keeper);
         oracle.setSettlementPrice(0, 52_000 * 1e8);
-        vm.warp(epochAnchor + 1 days - 1);
+
         vm.expectRevert(EpochController.EpochNotEnded.selector);
+
         controller.settleEpoch(0);
     }
 
     function test_settleEpoch_success() public {
-        vm.warp(epochAnchor - 1);
-        vm.startPrank(owner);
-        collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
-        vm.stopPrank();
+        warpIntoEpoch(0);
 
-        vm.warp(epochAnchor + 1);
+        fundLP(100_000 * 1e8);
+
         vm.prank(keeper);
         controller.startEpoch();
+
         vm.prank(keeper);
         oracle.setSettlementPrice(0, 52_000 * 1e8);
 
-        vm.warp(epochAnchor + 1 days + 1);
+        warpAfterEpoch(0);
+
         controller.settleEpoch(0);
+
         assertTrue(controller.epochSettled(0));
     }
 
     function test_settleEpoch_payoffCalculation() public {
-        vm.warp(epochAnchor - 1);
-        vm.startPrank(owner);
-        collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
-        vm.stopPrank();
+        warpIntoEpoch(0);
 
-        vm.warp(epochAnchor + 1);
+        fundLP(100_000 * 1e8);
+
         vm.prank(keeper);
         controller.startEpoch();
-        uint256 strike = 50_000 * 1e8;
+
         uint256 settlement = 48_000 * 1e8;
+
         vm.prank(keeper);
         oracle.setSettlementPrice(0, settlement);
 
-        uint256 expectedPayoff = strike - settlement;
-        vm.warp(epochAnchor + 1 days + 1);
+        uint256 expectedPayoff = STRIKE - settlement;
+
         vm.expectEmit(true, true, true, true);
         emit EpochController.EpochSettled(0, settlement, expectedPayoff);
+
+        warpAfterEpoch(0);
+
         controller.settleEpoch(0);
+
         assertEq(collateral.balanceOf(address(longGammaVault)), expectedPayoff);
     }
 
     function test_settleEpoch_withFee() public {
         vm.prank(owner);
         controller.setFeeRecipient(owner);
+
         vm.prank(owner);
         controller.setFeeBps(100);
 
-        vm.warp(epochAnchor - 1);
-        vm.startPrank(owner);
-        collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
-        vm.stopPrank();
+        warpIntoEpoch(0);
 
-        vm.warp(epochAnchor + 1);
+        fundLP(100_000 * 1e8);
+
         vm.prank(keeper);
         controller.startEpoch();
+
         vm.prank(keeper);
         oracle.setSettlementPrice(0, 52_000 * 1e8);
 
-        vm.warp(epochAnchor + 1 days + 1);
+        warpAfterEpoch(0);
+
         controller.settleEpoch(0);
+
         uint256 payoff = 2_000 * 1e8;
-        uint256 afterFee = (payoff * (10000 - 100)) / 10000;
+        uint256 afterFee = (payoff * 9900) / 10000;
+
         assertEq(collateral.balanceOf(address(longGammaVault)), afterFee);
     }
 
     function test_settleEpoch_alreadySettled_reverts() public {
-        vm.warp(epochAnchor - 1);
-        vm.startPrank(owner);
-        collateral.approve(address(lpVault), 100_000 * 1e8);
-        lpVault.deposit(100_000 * 1e8);
-        vm.stopPrank();
+        warpIntoEpoch(0);
 
-        vm.warp(epochAnchor + 1);
+        fundLP(100_000 * 1e8);
+
         vm.prank(keeper);
         controller.startEpoch();
+
         vm.prank(keeper);
         oracle.setSettlementPrice(0, 52_000 * 1e8);
-        vm.warp(epochAnchor + 1 days + 1);
+
+        warpAfterEpoch(0);
+
         controller.settleEpoch(0);
+
         vm.expectRevert(EpochController.EpochAlreadySettled.selector);
+
         controller.settleEpoch(0);
     }
 
     function test_setVaults_onlyOwner() public {
         vm.prank(keeper);
+
         vm.expectRevert();
+
         controller.setVaults(longGammaVault, lpVault);
     }
 
     function test_setVaults_zero_reverts() public {
         vm.prank(owner);
+
         vm.expectRevert(EpochController.InvalidVaults.selector);
+
         controller.setVaults(LongGammaVault(address(0)), lpVault);
     }
 }
