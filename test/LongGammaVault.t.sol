@@ -102,7 +102,10 @@ contract LongGammaVaultTest is Test {
         uint256 amount = 100 * 1e8;
         uint256 premium = 5 * 1e8;
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: amount, premium: premium, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: amount,
+            premium: premium,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
 
@@ -124,7 +127,10 @@ contract LongGammaVaultTest is Test {
         vm.prank(owner);
         quoterRegistry.removeQuoter(quoter);
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: amount, premium: premium, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: amount,
+            premium: premium,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.prank(user1);
@@ -138,7 +144,10 @@ contract LongGammaVaultTest is Test {
         _warpToDepositWindow();
         uint256 wrongEpoch = controller.getCurrentEpochId() + 1;
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: wrongEpoch, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours
+            epochId: wrongEpoch,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.prank(user1);
@@ -154,7 +163,10 @@ contract LongGammaVaultTest is Test {
         longGammaVault.setCap(50 * 1e8);
         uint256 epochId = controller.getCurrentEpochId();
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.prank(user1);
@@ -170,7 +182,10 @@ contract LongGammaVaultTest is Test {
         controller.startEpoch();
         uint256 epochId = controller.getCurrentEpochId();
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.prank(user1);
@@ -190,7 +205,10 @@ contract LongGammaVaultTest is Test {
         _warpToDepositWindow();
         uint256 epochId = controller.getCurrentEpochId();
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
@@ -216,7 +234,10 @@ contract LongGammaVaultTest is Test {
         uint256 amount = 100 * 1e8;
         uint256 premium = 10 * 1e8;
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: amount, premium: premium, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: amount,
+            premium: premium,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
@@ -269,7 +290,10 @@ contract LongGammaVaultTest is Test {
         uint256 amount = 100 * 1e8;
         uint256 premium = 10 * 1e8;
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: amount, premium: premium, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: amount,
+            premium: premium,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
@@ -316,7 +340,10 @@ contract LongGammaVaultTest is Test {
         _warpToDepositWindow();
         uint256 epochId = controller.getCurrentEpochId();
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);
@@ -332,7 +359,10 @@ contract LongGammaVaultTest is Test {
         _warpToDepositWindow();
         uint256 epochId = controller.getCurrentEpochId();
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours
+            epochId: epochId,
+            notional: 100 * 1e8,
+            premium: 5 * 1e8,
+            expiry: block.timestamp + 1 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(user1);

@@ -25,7 +25,10 @@ interface IOptionsMarket {
     /// @param strike Strike price for the epoch.
     /// @param settlementPrice Settlement price for the epoch.
     /// @return Total payout (call + put) for the epoch.
-    function previewEpochPayout(uint256 epochId, uint256 strike, uint256 settlementPrice) external view returns (uint256);
+    function previewEpochPayout(uint256 epochId, uint256 strike, uint256 settlementPrice)
+        external
+        view
+        returns (uint256);
 
     /// @notice Called by EpochController after settlement; records strike/price and funded amount for claims.
     /// @param epochId Epoch identifier.

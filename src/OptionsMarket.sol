@@ -169,7 +169,10 @@ contract OptionsMarket is IOptionsMarket, ERC721, Ownable, EIP712 {
     /// @param strike Strike for the epoch.
     /// @param settlementPrice Settlement price.
     /// @param fundedAmount Amount funded from LP vault for this epoch.
-    function settleEpoch(uint256 epochId, uint256 strike, uint256 settlementPrice, uint256 fundedAmount) external override {
+    function settleEpoch(uint256 epochId, uint256 strike, uint256 settlementPrice, uint256 fundedAmount)
+        external
+        override
+    {
         if (msg.sender != address(epochController)) revert OnlyEpochController();
         if (epochSettlementRecorded[epochId]) revert EpochAlreadySettled();
 
@@ -194,17 +197,21 @@ contract OptionsMarket is IOptionsMarket, ERC721, Ownable, EIP712 {
     /// @return amount Collateral amount sent to owner (pro-rata if epoch underfunded).
     function claim(uint256 positionId) external returns (uint256 amount) {
         address owner = ownerOf(positionId);
-        if (!_isAuthorized(owner, _msgSender(), positionId)) revert ERC721InsufficientApproval(_msgSender(), positionId);
+        if (!_isAuthorized(owner, _msgSender(), positionId)) {
+            revert ERC721InsufficientApproval(_msgSender(), positionId);
+        }
 
         Position storage position = positions[positionId];
         if (position.claimed) revert PositionAlreadyClaimed();
         if (!epochSettlementRecorded[position.epochId]) revert EpochNotSettled();
 
-        amount = _positionPayout(position, settledStrikeByEpoch[position.epochId], settlementPriceByEpoch[position.epochId]);
+        amount =
+            _positionPayout(position, settledStrikeByEpoch[position.epochId], settlementPriceByEpoch[position.epochId]);
 
         uint256 expectedPayout = totalExpectedPayoutByEpoch[position.epochId];
         if (amount != 0 && expectedPayout != 0) {
-            amount = Math.mulDiv(amount, totalFundedPayoutByEpoch[position.epochId], expectedPayout, Math.Rounding.Floor);
+            amount =
+                Math.mulDiv(amount, totalFundedPayoutByEpoch[position.epochId], expectedPayout, Math.Rounding.Floor);
         }
 
         position.claimed = true;
@@ -218,7 +225,10 @@ contract OptionsMarket is IOptionsMarket, ERC721, Ownable, EIP712 {
     }
 
     function _validateQuote(Quote calldata quote) internal view {
-        if (address(epochController) == address(0) || address(lpVault) == address(0) || address(quoterRegistry) == address(0)) {
+        if (
+            address(epochController) == address(0) || address(lpVault) == address(0)
+                || address(quoterRegistry) == address(0)
+        ) {
             revert InvalidQuote();
         }
         if (quote.buyer != msg.sender) revert InvalidQuote();
@@ -250,7 +260,11 @@ contract OptionsMarket is IOptionsMarket, ERC721, Ownable, EIP712 {
         return _previewPutPayout(position.notional, strike, settlementPrice);
     }
 
-    function _previewCallPayout(uint256 notional, uint256 strike, uint256 settlementPrice) internal pure returns (uint256) {
+    function _previewCallPayout(uint256 notional, uint256 strike, uint256 settlementPrice)
+        internal
+        pure
+        returns (uint256)
+    {
         if (settlementPrice <= strike || settlementPrice == 0) {
             return 0;
         }
@@ -258,7 +272,11 @@ contract OptionsMarket is IOptionsMarket, ERC721, Ownable, EIP712 {
         return Math.mulDiv(notional, settlementPrice - strike, settlementPrice, Math.Rounding.Floor);
     }
 
-    function _previewPutPayout(uint256 notional, uint256 strike, uint256 settlementPrice) internal pure returns (uint256) {
+    function _previewPutPayout(uint256 notional, uint256 strike, uint256 settlementPrice)
+        internal
+        pure
+        returns (uint256)
+    {
         if (strike <= settlementPrice || strike == 0) {
             return 0;
         }

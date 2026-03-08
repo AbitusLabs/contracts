@@ -79,13 +79,17 @@ contract OptionsMarketTest is Test {
         digestHelper = new QuoteDigestHelper();
     }
 
-    function _signQuote(address quoteBuyer, uint256 epochId, bool isCall, uint256 notional, uint256 premium, uint256 expiry)
-        internal
-        view
-        returns (bytes memory)
-    {
-        bytes32 digest =
-            digestHelper.getOptionsDigest(address(optionsMarket), block.chainid, quoteBuyer, epochId, isCall, notional, premium, expiry);
+    function _signQuote(
+        address quoteBuyer,
+        uint256 epochId,
+        bool isCall,
+        uint256 notional,
+        uint256 premium,
+        uint256 expiry
+    ) internal view returns (bytes memory) {
+        bytes32 digest = digestHelper.getOptionsDigest(
+            address(optionsMarket), block.chainid, quoteBuyer, epochId, isCall, notional, premium, expiry
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(quoterPk, digest);
         return abi.encodePacked(r, s, v);
     }
@@ -96,8 +100,14 @@ contract OptionsMarketTest is Test {
         lpVault.deposit(300_000 * 1e8, lpUser);
         vm.stopPrank();
 
-        IOptionsMarket.Quote memory quote =
-            IOptionsMarket.Quote({buyer: buyer, epochId: 0, isCall: true, notional: 10 * 1e8, premium: 1 * 1e8, expiry: block.timestamp + 2 hours});
+        IOptionsMarket.Quote memory quote = IOptionsMarket.Quote({
+            buyer: buyer,
+            epochId: 0,
+            isCall: true,
+            notional: 10 * 1e8,
+            premium: 1 * 1e8,
+            expiry: block.timestamp + 2 hours
+        });
         bytes memory signature =
             _signQuote(quote.buyer, quote.epochId, quote.isCall, quote.notional, quote.premium, quote.expiry);
 

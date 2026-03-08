@@ -54,7 +54,9 @@ contract LPVault is ILPVault, ERC4626, Ownable {
     /// @notice Emitted when reserved collateral is released after settlement.
     event ReservedCollateralReleased(uint256 indexed epochId, uint256 amount);
     /// @notice Emitted when a deposit is queued for the next epoch.
-    event PendingDepositQueued(address indexed owner, address indexed receiver, uint256 indexed epochId, uint256 assets);
+    event PendingDepositQueued(
+        address indexed owner, address indexed receiver, uint256 indexed epochId, uint256 assets
+    );
     /// @notice Emitted when pending deposit shares are claimed.
     event PendingDepositClaimed(
         address indexed owner, address indexed receiver, uint256 indexed epochId, uint256 assets, uint256 shares
