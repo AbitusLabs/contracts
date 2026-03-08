@@ -99,10 +99,7 @@ contract EpochFlowTest is Test {
         assertEq(lpVault.balanceOf(lpUser), 300_000 * 1e8);
 
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
-            epochId: epochId,
-            notional: 100 * 1e8,
-            premium: 8 * 1e8,
-            expiry: block.timestamp + 2 hours
+            epochId: epochId, notional: 100 * 1e8, premium: 8 * 1e8, expiry: block.timestamp + 2 hours
         });
         bytes memory sig = _signQuote(quote.epochId, quote.notional, quote.premium, quote.expiry);
         vm.startPrank(stratUser);
