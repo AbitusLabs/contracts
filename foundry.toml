@@ -14,7 +14,7 @@ fs_permissions = [
 ]
 
 [etherscan]
-ethercan = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=43113" }
+avalanche_fuji = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=43113" }
 
 [doc]
 out = "docs"
