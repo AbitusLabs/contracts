@@ -292,7 +292,7 @@ Deploy order: SettlementOracle, QuoterRegistry, LPVault, LongGammaVault, EpochCo
     integration/
       EpochFlow.t.sol
   script/
-    Deploy.s.sol
+    DeployDemo.s.sol
   foundry.toml
   README.md
 ```

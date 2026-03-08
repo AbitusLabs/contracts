@@ -9,5 +9,13 @@ evm_version = "cancun"
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
 ]
+fs_permissions = [
+    { access = "read-write", path = "./deployments" }
+]
+
+[doc]
+out = "docs"
+title = "Abitus Contracts"
+repository = "https://github.com/AbitusLabs/contracts"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
