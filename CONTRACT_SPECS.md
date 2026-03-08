@@ -11,12 +11,13 @@ References: [8_architecture/ARCHITECTURE.md](../8_architecture/ARCHITECTURE.md),
 | # | Contract | Purpose |
 |---|----------|---------|
 | 1 | **SettlementOracle** | Price feed adapter; current price (strike) and settlement price per epoch; keeper sets settlement. |
-| 2 | **EpochController** | Epoch lifecycle, strike storage, `startEpoch()`, `settleEpoch()`; orchestrates vaults and oracle. |
-| 3 | **LongGammaVault** | Strategy vault: deposit with signed quote, withdraw/roll, ERC20 shares; receives PnL from LP at settlement. |
-| 4 | **LPVault** | LP vault: deposit, withdraw/roll, ERC20 shares; receives premium from Long Gamma; pays PnL at settlement. |
-| 5 | **QuoterRegistry** | Authorized quoter addresses for EIP-712 quote verification; used by LongGammaVault. |
+| 2 | **EpochController** | Epoch lifecycle, strike storage, `startEpoch()`, `settleEpoch()`; orchestrates vaults, options market, and oracle. |
+| 3 | **LongGammaVault** | Strategy vault: deposit with signed quote (or without quote when quoter registry not set), withdraw/roll, ERC20 shares; receives PnL from LP at settlement. |
+| 4 | **LPVault** | LP vault: deposit (immediate or queued for next epoch), withdraw/roll, ERC20 shares; receives premium from Long Gamma and OptionsMarket; pays PnL and reserves/releases collateral for options. |
+| 5 | **OptionsMarket** | Options market: buy call/put with signed quote (ERC-721 positions); premium to LP vault, collateral reserved in LP vault; settlement and claim after epoch end. |
+| 6 | **QuoterRegistry** | Authorized quoter addresses for EIP-712 quote verification; used by LongGammaVault and OptionsMarket. |
 
-**Total: 5 core contracts.** Optional: separate **ProtocolTreasury** or fee recipient as a simple address (can be stored on EpochController or vaults).
+**Total: 6 core contracts.** Fee recipient is a simple address on EpochController (no separate ProtocolTreasury contract).
 
 ---
 
@@ -29,20 +30,31 @@ References: [8_architecture/ARCHITECTURE.md](../8_architecture/ARCHITECTURE.md),
 | **SettlementOracle** | `setSettlementPrice(epochId, price)` | KEEPER only |
 | SettlementOracle | `setPriceFeed(address)` | OWNER only |
 | SettlementOracle | `setKeeper(address)` | OWNER only |
-| **EpochController** | `startEpoch()` | KEEPER or permissionless (recommend KEEPER) |
-| EpochController | `settleEpoch(epochId)` | KEEPER or permissionless (recommend permissionless so anyone can settle if keeper fails) |
+| **EpochController** | `startEpoch()` | KEEPER only |
+| EpochController | `settleEpoch(epochId)` | Permissionless (anyone once epoch ended) |
 | EpochController | `setKeeper(address)`, `setFeeRecipient(address)`, `setFeeBps(uint16)` | OWNER only |
-| EpochController | `setVaults(LongGammaVault, LPVault)` | OWNER only (at init or once) |
-| **LongGammaVault** | `deposit(amount, quote, signature)` | Any user (quote must be valid and from authorized quoter) |
-| LongGammaVault | `withdraw` / `roll` | Any user (own shares) |
-| LongGammaVault | `setQuoterRegistry(addr)` | OWNER only |
-| LongGammaVault | `setEpochController(addr)` | OWNER only |
-| LongGammaVault | `setCap(uint256)` (optional) | OWNER only |
-| **LPVault** | `deposit(amount)` | Any user |
-| LPVault | `withdraw` / `roll` | Any user (own shares) |
-| LPVault | `setEpochController(addr)` | OWNER only |
-| LPVault | `receivePremium(uint256)` (or equivalent) | EPOCH_CONTROLLER only (or LongGammaVault) |
-| LPVault | `paySettlement(uint256)` (or pull by controller) | EPOCH_CONTROLLER only |
+| EpochController | `setVaults(LongGammaVault, LPVault)` | OWNER only |
+| EpochController | `setOptionsMarket(IOptionsMarket)` | OWNER only |
+| **LongGammaVault** | `depositWithQuote(assets, receiver, quote, signature)` | Any user (quote from authorized quoter) |
+| LongGammaVault | `mintWithQuote(shares, receiver, quote, signature)` | Any user (quote from authorized quoter) |
+| LongGammaVault | `deposit(assets, receiver)` / `mint(shares, receiver)` | Any user (only when quoterRegistry not set) |
+| LongGammaVault | `withdraw` / `redeem` / `roll` | Any user (own shares) |
+| LongGammaVault | `setQuoterRegistry(addr)`, `setEpochController(addr)`, `setLPVault(addr)`, `setCap(uint256)` | OWNER only |
+| **LPVault** | `deposit(assets, receiver)` | Any user (immediate if epoch open, else queued for next epoch) |
+| LPVault | `withdraw` / `redeem` / `roll` | Any user (own shares) |
+| LPVault | `claimPendingShares(receiver)` | Any user (claim queued deposit when epoch started) |
+| LPVault | `setEpochController(addr)`, `setLongGammaVault(addr)`, `setOptionsMarket(addr)` | OWNER only |
+| LPVault | `receivePremium(uint256)` | LongGammaVault, OptionsMarket, or EpochController |
+| LPVault | `paySettlement(uint256)` | EpochController only |
+| LPVault | `paySettlementTo(receiver, amount, epochId)` | EpochController only |
+| LPVault | `reserveCollateral(epochId, amount)` | OptionsMarket only |
+| LPVault | `releaseReservedCollateral(epochId)` | EpochController only |
+| LPVault | `onEpochStarted(epochId)` | EpochController only |
+| **OptionsMarket** | `buyOption(quote, signature)` | Any user (quote from authorized quoter) |
+| OptionsMarket | `claim(positionId)` | Owner or approved (after epoch settled) |
+| OptionsMarket | `setEpochController(addr)`, `setLPVault(addr)`, `setQuoterRegistry(addr)` | OWNER only |
+| OptionsMarket | `settleEpoch(epochId, strike, settlementPrice, fundedAmount)` | EpochController only |
+| OptionsMarket | `onEpochStarted(epochId)` | EpochController only |
 | **QuoterRegistry** | `addQuoter(address)` / `removeQuoter(address)` | OWNER only |
 | QuoterRegistry | `isQuoter(address)` (view) | Anyone |
 
@@ -50,12 +62,14 @@ References: [8_architecture/ARCHITECTURE.md](../8_architecture/ARCHITECTURE.md),
 
 - **OWNER**: Admin; sets oracles, keeper, fee recipient, quoters, vault links. Prefer multisig in production.
 - **KEEPER**: Bot (Chainlink Automation, Gelato, or custom). Calls `setSettlementPrice` on oracle and `startEpoch()` / `settleEpoch()` on controller. Optionally `settleEpoch` can be permissionless.
-- **Authorized quoter**: EOA or contract whose EIP-712 signature is accepted by LongGammaVault for deposit quotes. Backend signer address must be registered in QuoterRegistry.
+- **Authorized quoter**: EOA or contract whose EIP-712 signature is accepted by LongGammaVault (deposit quotes) and by OptionsMarket (option quotes). Backend signer address must be registered in QuoterRegistry.
 
-### 2.3 No Mid-Epoch Deposits / No Early Withdrawal
+### 2.3 Deposit Windows and Withdrawals
 
-- Deposits (both vaults) allowed only when `block.timestamp < currentEpochStartTime`. Enforced in vaults by reading epoch state from EpochController.
-- Withdrawals and roll only after epoch is settled (or in the window after settlement). No early withdrawal during epoch; enforce in vault logic.
+- **LongGammaVault**: Deposits (with or without quote) allowed only when current epoch strike is not yet set (pre-epoch window). Withdrawals/redeem only after previous epoch is settled.
+- **LPVault**: Deposits allowed anytime; if current epoch is open (strike not set), shares are minted immediately; otherwise the deposit is queued for the next epoch and shares are claimable after that epoch starts via `claimPendingShares`. Withdrawals/redeem only after previous epoch is settled.
+- **OptionsMarket**: Options can be bought only when current epoch strike is not yet set. Claims only after epoch is settled.
+- No early withdrawal: vault withdraw/roll only when epoch is settled; options claim only after settlement.
 
 ---
 
@@ -94,40 +108,39 @@ Provide current BTC.b price (for strike at epoch start) and settlement price per
 ### 3.2 EpochController
 
 **Responsibility**  
-Define epoch boundaries (e.g. 24h from 00:00 UTC), store strike per epoch, start epochs (fix strike from oracle), run settlement (compute straddle PnL, pull from LPVault, push to LongGammaVault). Hold fee configuration.
+Define epoch boundaries (e.g. 24h from 00:00 UTC), store strike per epoch, start epochs (fix strike from oracle), run settlement: pay Long Gamma straddle PnL, then pay options market (call/put payouts) from reserved collateral, release reserved collateral. Hold fee configuration. Options market is optional (can be set to zero).
 
 **State**
 
 - `ISettlementOracle public oracle`
-- `ILongGammaVault public longGammaVault`
+- `ILongGammaVault private _longGammaVault`
+- `IOptionsMarket private _optionsMarket` (optional; can be zero)
 - `ILPVault public lpVault`
-- `uint256 public constant EPOCH_DURATION = 24 hours`
-- `uint256 public constant EPOCH_ANCHOR` — e.g. 00:00 UTC in unix (configurable at deploy).
+- `uint256 public constant EPOCH_DURATION = 1 days`
+- `uint256 public immutable EPOCH_ANCHOR` — e.g. 00:00 UTC in unix (configurable at deploy).
 - `mapping(uint256 epochId => uint256) public strikeForEpoch` — strike (price, 8 decimals) at epoch start.
-- `mapping(uint256 epochId => bool) public epochSettled` — true once settled.
+- `mapping(uint256 epochId => bool) public override epochSettled` — true once settled.
 - `address public keeper`
 - `address public owner`
 - `address public feeRecipient`
-- `uint16 public feeBps` — protocol fee in basis points of premium (MVP: small percentage).
+- `uint16 public feeBps` — protocol fee in basis points (e.g. 50 = 0.5%), deducted from payouts.
 
 **Epoch ID**  
-Derive from time: e.g. `epochId = (block.timestamp - EPOCH_ANCHOR) / EPOCH_DURATION`. Epoch start time = `EPOCH_ANCHOR + epochId * EPOCH_DURATION`, end time = start + EPOCH_DURATION.
+`epochId = (block.timestamp - EPOCH_ANCHOR) / EPOCH_DURATION` (0 before anchor). Epoch start time = `EPOCH_ANCHOR + epochId * EPOCH_DURATION`, end time = start + EPOCH_DURATION.
 
 **Key functions**
 
 - `getCurrentEpochId() view returns (uint256)` — current epoch based on `block.timestamp`.
 - `getEpochStartTime(uint256 epochId) view returns (uint256)` — start timestamp for epoch.
 - `getEpochEndTime(uint256 epochId) view returns (uint256)` — end timestamp for epoch.
-- `startEpoch()` — callable when `block.timestamp >= getEpochStartTime(currentEpochId)` and strike not yet set for current epoch. Reads `oracle.getCurrentPrice()`, stores in `strikeForEpoch[currentEpochId]`. Emits `EpochStarted(epochId, strike)`.
-- `settleEpoch(uint256 epochId)` — require `block.timestamp >= getEpochEndTime(epochId)`, require `oracle.getSettlementPrice(epochId)` is set, require `!epochSettled[epochId]`. Compute straddle intrinsic value: `settlementPrice = oracle.getSettlementPrice(epochId)`, `strike = strikeForEpoch[epochId]`. Call payoff = max(0, settlement - strike) + max(0, strike - settlement) = abs(settlement - strike) in same units. PnL to Long Gamma = payoff (in collateral units, scaled). Deduct protocol fee if any (from premium side or from payoff; MVP says “small % of premium” — can apply to payoff or keep fee on premium at deposit time). Transfer: pull from LPVault the payout amount (or vault exposes `transferToLongGamma(amount)` callable by controller), push to LongGammaVault. Mark `epochSettled[epochId] = true`. Emit `EpochSettled(epochId, settlementPrice, payout)`.
-
-**Invariants**  
-Settlement must not overdraw LPVault (LP is fully collateralized; total exposure ≤ deployed LP capital). Controller must use vault interfaces that enforce caps (e.g. LPVault only allows transfer up to available balance and within utilization rules).
+- `startEpoch()` — KEEPER only. Require current epoch started and strike not yet set. Read `oracle.getCurrentPrice()`, store in `strikeForEpoch[currentEpochId]`. Call `lpVault.onEpochStarted(epochId)`, `longGammaVault.onEpochStarted(epochId)`, and if options market set, `optionsMarket.onEpochStarted(epochId)`. Emit `EpochStarted(epochId, strike)`.
+- `settleEpoch(uint256 epochId)` — permissionless. Require epoch ended, not yet settled, oracle settlement price and strike set. (1) Long Gamma: payoff = |strike - settlementPrice|; deduct fee; `lpVault.paySettlement(longGammaAfterFee)`, `longGammaVault.receiveSettlement(longGammaAfterFee)`. (2) If options market set: options payout from `optionsMarket.previewEpochPayout`; deduct fee; `lpVault.paySettlementTo(optionsMarket, optionsAfterFee, epochId)`; `optionsMarket.settleEpoch(...)`; `lpVault.releaseReservedCollateral(epochId)`. Set `epochSettled[epochId] = true`, emit `EpochSettled`.
 
 **Authorizations**
 
-- Owner: `setKeeper(address)`, `setFeeRecipient(address)`, `setFeeBps(uint16)`, `setVaults(ILongGammaVault, ILPVault)` (if allowed to change).
-- Keeper: `startEpoch()` (recommended). Optional: restrict `settleEpoch` to keeper or leave permissionless for resilience.
+- Owner: `setKeeper`, `setFeeRecipient`, `setFeeBps`, `setVaults`, `setOptionsMarket`, `setOracle`.
+- Keeper: `startEpoch()`.
+- Anyone: `settleEpoch(epochId)` once epoch has ended.
 
 **Events**
 
@@ -139,39 +152,40 @@ Settlement must not overdraw LPVault (LP is fully collateralized; total exposure
 ### 3.3 LongGammaVault
 
 **Responsibility**  
-Accept BTC.b deposits only in pre-epoch window and only with a valid signed quote from an authorized quoter; mint shares; at settlement receive PnL from LP vault; allow withdraw/roll after settlement. Enforce cap (total notional ≤ LP capacity). Deduct premium from user and send to LP vault (or to fee recipient for protocol cut); user’s remaining balance is “at risk” (max loss = premium paid).
+ERC-4626 vault for long gamma strategy. Accept BTC.b deposits in pre-epoch window: with a signed quote from an authorized quoter (`depositWithQuote` / `mintWithQuote`), premium is sent to LPVault and net assets get shares; when `quoterRegistry` is not set, `deposit` / `mint` without quote are allowed (dev/emergency). At settlement receive PnL from controller (event only). Enforce per-epoch notional cap. Withdraw/redeem only after previous epoch settled.
 
 **State**
 
-- `IERC20 public collateral` — BTC.b.
+- `IERC20 public immutable collateral` — BTC.b (same as ERC-4626 asset).
 - `IEpochController public epochController`
 - `IQuoterRegistry public quoterRegistry`
-- `uint256 public totalDepositsCurrentEpoch` — total notional deposited for current epoch (for cap check).
-- `uint256 public cap` — max total notional (derived from LP capacity or set by owner).
-- Per-epoch accounting: total premium collected, total notional, share supply per epoch (or use a single share token and track NAV per epoch for withdraw/roll). Standard approach: ERC20 shares, vault holds collateral; at deposit user sends `amount` BTC.b, part is premium (sent to LPVault), rest stays in vault; shares minted based on net amount or notional after premium.
-- Deposit receipt or share logic: either (a) shares are fungible across epochs and NAV is updated at settlement, or (b) round/epoch-specific accounting (like Ribbon). For MVP, (a) is simpler: one share token, `totalAssets()` increases when PnL received at settlement, decreases when premium sent out at deposit.
+- `ILPVault public lpVault`
+- `uint256 public totalDepositsCurrentEpoch` — gross notional in current epoch (for cap).
+- `uint256 public cap` — max gross notional per epoch (0 = no cap).
+- ERC-4626: single share token; `totalAssets()` is vault collateral balance.
 
 **Key functions**
 
-- `deposit(uint256 amount, Quote quote, bytes signature)` — require `block.timestamp < epochController.getEpochStartTime(epochController.getCurrentEpochId())` (deposit window). Recover signer from EIP-712 `quote` + `signature`; require `quoterRegistry.isQuoter(signer)`. Validate quote: `quote.epochId == currentEpochId`, `quote.notional == amount` (or amount in quote), `quote.premium <= amount`, `quote.expiry >= block.timestamp`. Require `totalDepositsCurrentEpoch + amount <= cap`. Transfer `amount` BTC.b from user. Send `quote.premium` to LPVault (e.g. `lpVault.receivePremium(quote.premium)` or transfer to LP vault address). Mint shares to user for `amount - quote.premium` (or proportional to notional minus premium). Update `totalDepositsCurrentEpoch += amount`. Emit `Deposit(sender, amount, premium, shares)`.
-- `withdraw(uint256 shares)` — only when current epoch is settled (or in withdraw window). Burn shares, transfer proportional collateral to user.
-- `roll(uint256 shares)` — keep position into next epoch (no burn/transfer; just mark or use same shares with next epoch’s accounting if applicable). Exact semantics depend on share model.
-- `receiveSettlement(uint256 amount)` — callable only by EpochController; increase vault’s collateral balance (or internal accounting) by `amount` (PnL from LP). Update NAV so share value reflects gain.
+- `depositWithQuote(uint256 assets, address receiver, Quote quote, bytes signature)` — require deposit window (strike not set), cap not exceeded. Validate quote (epochId, notional == assets, premium <= assets, expiry). Recover signer from EIP-712, require `quoterRegistry.isQuoter(signer)`. Transfer assets from user; send premium to `lpVault.receivePremium(premium)`; mint shares for assets - premium. Update `totalDepositsCurrentEpoch += assets`. Emit `Deposit`, `QuoteDeposit`.
+- `mintWithQuote(uint256 shares, address receiver, Quote quote, bytes signature)` — same; quote.notional = net assets for shares + premium.
+- `deposit(assets, receiver)` / `mint(shares, receiver)` — only when `quoterRegistry` not set; otherwise revert. Same window and cap.
+- `withdraw` / `redeem` — only when previous epoch settled; standard ERC-4626.
+- `roll(uint256)` — no-op.
+- `receiveSettlement(uint256 amount)` — EpochController only; emit `SettlementReceived(amount)` (controller already sent funds via LPVault).
+- `onEpochStarted(uint256)` — EpochController only; reset `totalDepositsCurrentEpoch = 0`.
 
 **Quote structure (EIP-712)**  
-`Quote`: `epochId`, `notional` (or `amount`), `premium`, `expiry` (timestamp), `nonce` (optional). Domain: contract name, version, chainId, verifyingContract.
+`Quote`: `epochId`, `notional`, `premium`, `expiry`. Domain: name `AbitusLongGammaQuote`, version `1`, chainId, verifyingContract = LongGammaVault.
 
 **Authorizations**
 
-- Owner: `setQuoterRegistry(address)`, `setEpochController(address)`, `setCap(uint256)`.
-- EpochController: `receiveSettlement(uint256)`.
-- Users: `deposit` (with valid quote), `withdraw`, `roll`.
+- Owner: `setQuoterRegistry`, `setEpochController`, `setLPVault`, `setCap`.
+- EpochController: `receiveSettlement`, `onEpochStarted`.
+- Users: `depositWithQuote`, `mintWithQuote`, or `deposit`/`mint` when quoter not set; `withdraw`, `redeem`, `roll`.
 
 **Events**
 
-- `Deposit(address indexed user, uint256 amount, uint256 premium, uint256 shares)`.
-- `Withdraw(address indexed user, uint256 shares, uint256 amount)`.
-- `SettlementReceived(uint256 amount)`.
+- `Deposit`, `QuoteDeposit`, `SettlementReceived`.
 
 ---
 
@@ -215,7 +229,7 @@ At epoch start, “deployed” = total notional sold (Long Gamma deposits for th
 ### 3.5 QuoterRegistry
 
 **Responsibility**  
-Maintain set of addresses allowed to sign deposit quotes for LongGammaVault.
+Maintain set of addresses allowed to sign quotes for LongGammaVault (deposit quotes) and for OptionsMarket (option quotes).
 
 **State**
 
@@ -233,38 +247,77 @@ Maintain set of addresses allowed to sign deposit quotes for LongGammaVault.
 
 ---
 
+### 3.6 OptionsMarket
+
+**Responsibility**  
+Market for buying call/put options per epoch with signed quotes. Each position is an ERC-721 NFT. Buyer sends premium to contract, which forwards it to LPVault via `receivePremium`; notional is reserved in LPVault via `reserveCollateral(epochId, notional)`. At settlement EpochController calls `previewEpochPayout(epochId, strike, settlementPrice)`, deducts fee, pays OptionsMarket via `lpVault.paySettlementTo(optionsMarket, optionsAfterFee, epochId)`, then `settleEpoch(epochId, strike, settlementPrice, optionsAfterFee)` and `lpVault.releaseReservedCollateral(epochId)`. Position owners claim payout via `claim(positionId)`; if epoch is underfunded, payout is pro-rata (fundedAmount / expectedPayout per position).
+
+**State**
+
+- `IERC20 public immutable collateral` — same as LPVault asset.
+- `IEpochController public epochController`, `ILPVault public lpVault`, `IQuoterRegistry public quoterRegistry`
+- `uint256 public nextPositionId`; `mapping(uint256 => Position) public positions` (epochId, notional, premium, claimable, isCall, claimed)
+- Per-epoch: totalCallNotionalByEpoch, totalPutNotionalByEpoch, settledStrikeByEpoch, settlementPriceByEpoch, totalExpectedPayoutByEpoch, totalFundedPayoutByEpoch, epochSettlementRecorded
+- `mapping(bytes32 => bool) public usedQuotes` — prevent replay
+
+**Key functions**
+
+- `buyOption(Quote quote, bytes signature)` — validate quote (buyer == msg.sender, epochId == current, strike not set, notional/premium/expiry). Recover signer, require quoterRegistry.isQuoter(signer). Mark digest used. Transfer premium from buyer to this, then lpVault.receivePremium(premium), lpVault.reserveCollateral(epochId, notional). Mint NFT to quote.buyer, store Position. Update totalCallNotionalByEpoch or totalPutNotionalByEpoch.
+- `previewEpochPayout(epochId, strike, settlementPrice)` — view; sum of call payouts + put payouts for epoch (call: notional * (settlement - strike) / settlement when settlement > strike; put: notional * (strike - settlement) / strike when strike > settlement).
+- `settleEpoch(epochId, strike, settlementPrice, fundedAmount)` — EpochController only; store strike, price, expectedPayout, fundedAmount; set epochSettlementRecorded[epochId] = true.
+- `onEpochStarted(epochId)` — EpochController only; no-op.
+- `claim(uint256 positionId)` — owner or approved; require epoch settled, not already claimed. Compute position payout (call or put formula); apply pro-rata if expectedPayout > 0: amount = amount * fundedPayout / expectedPayout. Transfer collateral to owner, mark claimed.
+
+**Quote structure (EIP-712)**  
+`Quote`: `buyer`, `epochId`, `isCall`, `notional`, `premium`, `expiry`. Domain: name `AbitusOptionsQuote`, version `1`, chainId, verifyingContract = OptionsMarket.
+
+**Authorizations**
+
+- Owner: `setEpochController`, `setLPVault`, `setQuoterRegistry`.
+- EpochController: `settleEpoch`, `onEpochStarted`.
+- Users: `buyOption`, `claim` (owner or approved).
+
+**Events**
+
+- `OptionPurchased`, `EpochSettlementRecorded`, `OptionClaimed`.
+
+---
+
 ## 4. Interfaces and Dependencies
 
 ```
 SettlementOracle
   - no dependency on other Abitus contracts
 
+QuoterRegistry
+  - no dependency on other Abitus contracts
+
 EpochController
-  - depends on: SettlementOracle, LongGammaVault, LPVault
+  - depends on: SettlementOracle, LongGammaVault, LPVault, IOptionsMarket (optional)
 
 LongGammaVault
   - depends on: EpochController, QuoterRegistry, LPVault (to send premium), Collateral (BTC.b)
 
 LPVault
-  - depends on: EpochController, LongGammaVault (to send settlement), Collateral (BTC.b)
+  - depends on: EpochController, LongGammaVault (settlement), OptionsMarket (premium, reserve/release), Collateral (BTC.b)
 
-QuoterRegistry
-  - no dependency on other Abitus contracts
+OptionsMarket
+  - depends on: EpochController, LPVault, QuoterRegistry, Collateral (BTC.b)
 ```
 
-Deploy order: SettlementOracle, QuoterRegistry, LPVault, LongGammaVault, EpochController. Then: set vaults on EpochController, set EpochController and QuoterRegistry on LongGammaVault, set EpochController on LPVault, set keeper on SettlementOracle and EpochController, add quoter address to QuoterRegistry.
+Deploy order: SettlementOracle, QuoterRegistry, LPVault, LongGammaVault, OptionsMarket, EpochController. Then: set vaults and options market on EpochController, set EpochController and QuoterRegistry and LPVault on LongGammaVault, set EpochController and LongGammaVault and OptionsMarket on LPVault, set EpochController and LPVault and QuoterRegistry on OptionsMarket, set keeper on SettlementOracle and EpochController, add quoter address to QuoterRegistry.
 
 ---
 
 ## 5. Invariants (On-Chain Guarantees)
 
 - Long Gamma max loss ≤ deposited capital (premium paid; no leverage).
-- LP vault always fully collateralized: total settlement paid ≤ vault balance; max 50% utilization per epoch.
-- Total exposure (Long Gamma notional) ≤ deployed LP capital (enforced by cap and utilization).
+- LP vault: total settlement paid ≤ vault balance; reserved collateral ≤ available balance; pending + reserved ≤ balance.
+- Options: payout per epoch limited by fundedAmount (pro-rata if underfunded); reserved collateral released after settlement.
 - No leverage: no borrowing; all positions fully backed by collateral.
-- No early withdrawal: withdraw/roll only when epoch is settled (or in designated window).
-- Settlement price set only for past expiry and once per epoch.
-- Quote signer must be in QuoterRegistry; quote expiry and epoch must be valid.
+- No early withdrawal: vault withdraw/redeem only when previous epoch settled; options claim only after epoch settled.
+- Settlement price set only once per epoch; strike set only at epoch start.
+- Quote signer must be in QuoterRegistry; quote expiry and epoch must be valid; quote digest not already used (options).
 
 ---
 
@@ -277,31 +330,39 @@ Deploy order: SettlementOracle, QuoterRegistry, LPVault, LongGammaVault, EpochCo
     EpochController.sol
     LongGammaVault.sol
     LPVault.sol
+    OptionsMarket.sol
     QuoterRegistry.sol
     interfaces/
       ISettlementOracle.sol
       IEpochController.sol
       ILongGammaVault.sol
       ILPVault.sol
+      IOptionsMarket.sol
       IQuoterRegistry.sol
   test/
     SettlementOracle.t.sol
     EpochController.t.sol
     LongGammaVault.t.sol
     LPVault.t.sol
+    OptionsMarket.t.sol
     integration/
       EpochFlow.t.sol
   script/
     DeployDemo.s.sol
+    DeployAvalancheMainnet.s.sol
   foundry.toml
   README.md
 ```
 
 ---
 
-## 7. EIP-712 Quote Type
+## 7. EIP-712 Quote Types
 
-Suggested type name: `Quote`. Fields: `epochId` (uint256), `notional` (uint256), `premium` (uint256), `expiry` (uint256). Domain: name `AbitusLongGammaQuote`, version `1`, chainId, verifyingContract = LongGammaVault address. Backend signs this; LongGammaVault recovers signer and checks QuoterRegistry.
+**LongGammaVault (deposit quote)**  
+Type name: `Quote`. Fields: `epochId` (uint256), `notional` (uint256), `premium` (uint256), `expiry` (uint256). Domain: name `AbitusLongGammaQuote`, version `1`, chainId, verifyingContract = LongGammaVault address. Backend signs this; LongGammaVault recovers signer and checks QuoterRegistry.
+
+**OptionsMarket (option quote)**  
+Type name: `Quote`. Fields: `buyer` (address), `epochId` (uint256), `isCall` (bool), `notional` (uint256), `premium` (uint256), `expiry` (uint256). Domain: name `AbitusOptionsQuote`, version `1`, chainId, verifyingContract = OptionsMarket address. Backend signs this; OptionsMarket recovers signer and checks QuoterRegistry.
 
 ---
 
