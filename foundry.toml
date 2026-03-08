@@ -13,6 +13,9 @@ fs_permissions = [
     { access = "read-write", path = "./deployments" }
 ]
 
+[etherscan]
+ethercan = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=43113" }
+
 [doc]
 out = "docs"
 title = "Abitus Contracts"

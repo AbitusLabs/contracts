@@ -5,6 +5,7 @@ out/
 # Ignores development broadcast logs
 broadcast/
 .env.mainnet
+.env.fuji
 # Docs
 docs/
 

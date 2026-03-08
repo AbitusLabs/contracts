@@ -1,0 +1,24 @@
+{
+  "blockNumber": 52497403,
+  "chainId": 43113,
+  "collateral": "0x237364B938310E343310A9fA74CF615d03a5F887",
+  "contracts": {
+    "epochController": "0x1CBF103B7F547bA3140290F23A73b69dB51Bc790",
+    "longGammaVault": "0x20EEa6151BaE0cdB68117f31802386a8F1b7260a",
+    "lpVault": "0xa627F754563185A528c8E0249c781Ca412198f5B",
+    "optionsMarket": "0x9463D83BBba1a64ffBe59271c61a2fcf71CFF16A",
+    "oracle": "0x37EC6079FF295e38E99E5cE8CB415515234B4b66",
+    "quoterRegistry": "0x5Fdb88eB03D4E1dA3622681C53149798D738eBDC"
+  },
+  "deployer": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "epochAnchor": 1773014400,
+  "feeBps": 50,
+  "feeRecipient": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "initialPrice": 10000000000000,
+  "keeper": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "longGammaCap": 7400000000,
+  "network": "avalanche-fuji",
+  "owner": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "priceFeed": "0xa851Ca7A505637e91E89b2a6cA19D03E9B0E2f2c",
+  "quoter": "0xECC6f27a08337e6EEe127A866538628eeb6E4318"
+}
