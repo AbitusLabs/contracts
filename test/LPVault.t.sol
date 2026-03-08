@@ -74,13 +74,19 @@ contract LPVaultTest is Test {
         assertEq(collateral.balanceOf(address(lpVault)), amount);
     }
 
-    function test_deposit_outOfWindow_reverts() public {
-        vm.warp(epochAnchor - 1);
+    function test_deposit_afterEpochStart_queuesForNextEpoch() public {
+        _warpToDepositWindow();
+        vm.prank(owner);
+        controller.startEpoch();
         vm.prank(user1);
         collateral.approve(address(lpVault), 100 * 1e8);
         vm.prank(user1);
-        vm.expectRevert(LPVault.DepositWindowClosed.selector);
-        lpVault.deposit(100 * 1e8, user1);
+        uint256 shares = lpVault.deposit(100 * 1e8, user1);
+        assertEq(shares, 0);
+        (uint256 pendingAssets, uint256 pendingEpoch) = lpVault.pendingDepositOf(user1);
+        assertEq(pendingAssets, 100 * 1e8);
+        assertEq(pendingEpoch, 1);
+        assertEq(lpVault.balanceOf(user1), 0);
     }
 
     function test_deposit_noController_reverts() public {
@@ -91,6 +97,29 @@ contract LPVaultTest is Test {
         vm.prank(user1);
         vm.expectRevert(LPVault.NoController.selector);
         lpVault.deposit(100 * 1e8, user1);
+    }
+
+    function test_claimPendingShares_afterNextEpochStart_success() public {
+        _warpToDepositWindow();
+        vm.prank(owner);
+        controller.startEpoch();
+
+        vm.startPrank(user1);
+        collateral.approve(address(lpVault), 100 * 1e8);
+        lpVault.deposit(100 * 1e8, user1);
+        vm.stopPrank();
+
+        vm.warp(epochAnchor + 1 days + 1);
+        vm.prank(owner);
+        controller.startEpoch();
+
+        assertEq(lpVault.balanceOf(user1), 0);
+
+        vm.prank(user1);
+        uint256 claimedShares = lpVault.claimPendingShares(user1);
+
+        assertEq(claimedShares, 100 * 1e8);
+        assertEq(lpVault.balanceOf(user1), 100 * 1e8);
     }
 
     function test_withdraw_afterSettlement_success() public {

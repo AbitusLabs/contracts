@@ -165,7 +165,9 @@ contract LongGammaVaultTest is Test {
     }
 
     function test_deposit_windowClosed_reverts() public {
-        vm.warp(epochAnchor - 1);
+        _warpToDepositWindow();
+        vm.prank(owner);
+        controller.startEpoch();
         uint256 epochId = controller.getCurrentEpochId();
         ILongGammaVault.Quote memory quote = ILongGammaVault.Quote({
             epochId: epochId, notional: 100 * 1e8, premium: 5 * 1e8, expiry: block.timestamp + 1 hours

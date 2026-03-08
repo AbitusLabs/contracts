@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 contract QuoteDigestHelper {
     bytes32 public constant QUOTE_TYPEHASH =
         keccak256("Quote(uint256 epochId,uint256 notional,uint256 premium,uint256 expiry)");
+    bytes32 public constant OPTIONS_QUOTE_TYPEHASH =
+        keccak256("Quote(address buyer,uint256 epochId,bool isCall,uint256 notional,uint256 premium,uint256 expiry)");
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -19,6 +21,24 @@ contract QuoteDigestHelper {
             abi.encode(DOMAIN_TYPEHASH, keccak256("AbitusLongGammaQuote"), keccak256("1"), chainId, verifyingContract)
         );
         bytes32 structHash = keccak256(abi.encode(QUOTE_TYPEHASH, epochId, notional, premium, expiry));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
+    function getOptionsDigest(
+        address verifyingContract,
+        uint256 chainId,
+        address buyer,
+        uint256 epochId,
+        bool isCall,
+        uint256 notional,
+        uint256 premium,
+        uint256 expiry
+    ) external pure returns (bytes32) {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(DOMAIN_TYPEHASH, keccak256("AbitusOptionsQuote"), keccak256("1"), chainId, verifyingContract)
+        );
+        bytes32 structHash =
+            keccak256(abi.encode(OPTIONS_QUOTE_TYPEHASH, buyer, epochId, isCall, notional, premium, expiry));
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 }

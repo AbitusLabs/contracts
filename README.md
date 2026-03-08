@@ -2,6 +2,8 @@
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
+This repo contains the **Abitus** on-chain contracts (EpochController, LongGammaVault, LPVault, SettlementOracle, QuoterRegistry) for the volatility protocol on Avalanche. Specs: **[CONTRACT_SPECS.md](CONTRACT_SPECS.md)**.
+
 Foundry consists of:
 
 -   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).

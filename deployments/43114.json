@@ -1,0 +1,23 @@
+{
+  "chainId": 43114,
+  "network": "avalanche-mainnet",
+  "blockNumber": 79873433,
+  "deployer": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "owner": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "keeper": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "quoter": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "feeRecipient": "0xECC6f27a08337e6EEe127A866538628eeb6E4318",
+  "btcB": "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
+  "btcUsdFeed": "0x2779D32d5166BAaa2B2b658333bA7e6Ec0C65743",
+  "epochAnchor": 1773014400,
+  "feeBps": 50,
+  "longGammaCap": "7400000000",
+  "contracts": {
+    "quoterRegistry": "0xAAA5cb7e00DeB007A997282a4979e2BA184906a8",
+    "oracle": "0xab3A6DE8723451Fe06DB56078af21016378bA545",
+    "lpVault": "0x7950dCc3f8bdE2B8074d8e5fb8C4CcC448bd45fa",
+    "longGammaVault": "0x097dB14d8dC7BB97a34c9fF9bCd987f823D74b3d",
+    "optionsMarket": "0x56BBB5c383aF5c443a60B02DAdF235E0801D785c",
+    "epochController": "0x8BF301BB46f26AF584BF878e2331f4DAEf1392Ce"
+  }
+}
